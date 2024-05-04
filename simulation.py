@@ -156,19 +156,15 @@ class Simulation:
         """
 
         self.all_forces = []
-        self.average_areas = []
+        self.all_average_areas = []
         self.all_volumes = []
         self.all_positions = []
         self.all_ages = []
         self.all_preferred_areas = []
+        self.all_t_values = [0, 0]
 
         self.current_areas = np.inf
-
-        self.all_t_values = [0, 0]
         self.last_event_time = 0
-        self.fail_cause = 0
-        self.lumen_status = False
-        
 
         self.N_bodies = N_bodies
         self.boxsize = boxsize
@@ -191,9 +187,10 @@ class Simulation:
         self.calculate_volume_from_radius()
         self.lumen_volume = self.volumes[-1]
         self.lumen_radius = self.radii[-1]
-        self.all_lumen_volumes = [self.lumen_volume]
+        self.all_lumen_volumes = []
 
         self.events.terminal = True
+        self.event_trigger_reason = None
 
     def calculate_radius_from_age(
         self
@@ -268,13 +265,7 @@ class Simulation:
             self.A_eq_star
         )
 
-        self.all_positions.append(self.positions)
-        self.all_forces.append(self.force_matrix)
-        self.all_volumes.append(self.hull.volume)
         self.current_areas = self.areas
-        self.average_areas.append(self.areas.mean())
-        self.all_lumen_volumes.append(self.lumen_volume)
-        self.all_preferred_areas.append(self.A_eq_star)
 
     @staticmethod
     def r_dot(
@@ -292,17 +283,21 @@ class Simulation:
         current_ages = self.ages   
         self.all_t_values.append(t)
         self.A_eq_star = (self.hull.area / (self.hull.simplices.shape[0])) * self.A_eq_star_scaling
-        self.all_preferred_areas.append(self.A_eq_star)
 
-        if self.lumen_status == False:
-            self.ages = current_ages + time_increment
-        else:
-            self.ages[:-1] = current_ages[:-1] + time_increment
-            self.ages[-1] = current_ages[-1]  
+        self.ages[:-1] = current_ages[:-1] + time_increment
+        self.ages[-1] = current_ages[-1]  
             
         self.all_ages.append(self.ages)
         round_percent = int(round((self.all_t_values[-1]/self.t_max)*50))
         drdt = self.force_matrix.flatten().tolist()
+
+        self.all_positions.append(self.positions)
+        self.all_forces.append(self.force_matrix)
+        self.all_volumes.append(self.hull.volume)
+        self.all_lumen_volumes.append(self.lumen_volume[0])
+        self.all_preferred_areas.append(self.A_eq_star)
+        self.all_average_areas.append(self.areas.mean())
+
         return drdt
 
     @staticmethod
@@ -314,19 +309,27 @@ class Simulation:
         """
         """
 
-        if (any(self.current_areas) <  self.A_eq_star) or (self.positions.shape[0]<=3):
+        if any(self.current_areas) <  self.A_eq_star:
+            self.event_trigger_reason = "unphysical_area"
+            return 0
+
+        elif self.positions.shape[0] <= 3:
+            self.event_trigger_reason = "unphysical_hull"
             return 0
 
         elif self.last_event_time != 0 and (self.all_t_values[-1] - self.last_event_time) <= self.mean_lifetime/1000:
+            self.event_trigger_reason = "too_soon_event"
             return 1
 
         elif any(self.ages[0:-1] > self.lifetimes[0:-1]): 
+            self.event_trigger_reason = "division"
             return 0
 
         else:
             distances = np.linalg.norm(self.positions - self.positions[-1], axis=1) 
             cells_inside = [i for i in range(self.N_bodies-1) if distances[i] <= self.radius_scaling * self.lumen_radius]
             if len(cells_inside) > 1:
+                self.event_trigger_reason = "cell_joins_lumen"
                 return 0
             else:
                 return 1
@@ -339,76 +342,62 @@ class Simulation:
         numerator, denominator = 0, 0
 
         self.calculate_radius_from_age()
-        distances = np.linalg.norm(self.positions - self.positions[-1], axis=1) 
+        self.calculate_volume_from_radius()
 
+        distances = np.linalg.norm(self.positions - self.positions[-1], axis=1) 
         bodies_in_centre = [i for i in range(self.N_bodies) if distances[i] <= (self.radius_scaling * self.lumen_radius)] 
 
-        new_exterior_cells = [i for i in range(self.N_bodies) if i not in bodies_in_centre]
-        new_cell_number = len(new_exterior_cells)
+        surviving_exterior_cells = [i for i in range(self.N_bodies) if i not in bodies_in_centre]
+        new_cell_number = len(surviving_exterior_cells)
         
         if new_cell_number >= 2:
-            if self.lumen_status == False:
-                N_cells = len(self.hull.vertices) 
-                new_positions = np.zeros((N_cells + 1, 3))
-                new_ages = np.zeros((N_cells + 1, 1))
-                new_lifetimes = np.zeros((N_cells + 1, 1))
-                bodies_in_centre = [i for i in range(self.N_bodies) if i not in self.hull.vertices]
+            
+            new_N_bodies = new_cell_number + 1
+            new_positions = np.zeros((new_N_bodies, 3))
+            new_ages = np.zeros((new_N_bodies, 1))
+            new_lifetimes = np.zeros((new_N_bodies, 1))
 
-                for i, body in enumerate(bodies_in_centre):
-                    mass = self.r_min * (4/3) * np.pi * (1+ ((np.cbrt(2)-1)*self.ages[body,0]/self.lifetimes[body,0]))**3
-                    if i== 0:
-                        new_lumen_volume += mass
-                    else:
-                        new_lumen_volume += self.volume_scaling * mass
-            else:
-                new_N_bodies = new_cell_number + 1 
-                new_positions = np.zeros((new_N_bodies, 3))
-                new_ages = np.zeros((new_N_bodies, 1))
-                new_lifetimes = np.zeros((new_N_bodies, 1))
+            for i, body in enumerate(bodies_in_centre):
 
-                for i, body in enumerate(bodies_in_centre):
-                    if body != self.N_bodies-1:
-                        mass = self.r_min * (4/3) * np.pi * (1+ ((np.cbrt(2)-1)*self.ages[body,0]/self.lifetimes[body,0]))**3
-                        added_mass = mass * self.volume_scaling
-                        new_lumen_volume += added_mass
-                    else:
-                        mass = self.r_min * (4/3) * np.pi * (1+ ((np.cbrt(2)-1)*self.ages[-1,0]/self.mean_lifetime))**3
-                        added_mass = mass
-                        new_lumen_volume += added_mass 
+                if body != self.N_bodies-1:
+                    new_lumen_volume += self.volumes[body] * self.volume_scaling
+                else:
+                    new_lumen_volume += self.lumen_volume
     
-            for i, body in enumerate(new_exterior_cells):  
-                mass = self.r_min * (4/3) * np.pi * (1+ ((np.cbrt(2)-1)*self.ages[body,0]/self.lifetimes[body]))**3
-                numerator += mass * self.positions[body]
-                denominator += mass
+            for i, body in enumerate(surviving_exterior_cells):  
+                numerator += self.volumes[body] * self.positions[body]
+                denominator += self.volumes[body]
 
-            for count, cell_index in enumerate(new_exterior_cells):
+            for count, cell_index in enumerate(surviving_exterior_cells):
                 new_positions[count] = self.positions[cell_index]
                 new_ages[count] = self.ages[cell_index]
                 new_lifetimes[count] = self.lifetimes[cell_index]
 
-            lumen_scale_age = (self.mean_lifetime/(np.cbrt(2) -1)) *(((1/self.r_min) * np.cbrt(3*new_lumen_volume * 0.25 * (1/np.pi)))-1)
-            self.lumen_radius = (0.75 * new_lumen_volume * (1/np.pi))**(1/3)
             self.lumen_volume = new_lumen_volume
-            
-            new_ages[-1] = lumen_scale_age 
+            self.lumen_radius = (0.75 * self.lumen_volume * (1/np.pi))**(1/3)
+
+            lumen_scale_age = self.mean_lifetime * ((self.lumen_radius/self.r_min)-1) * (1/(np.cbrt(2)-1))
+
+            new_ages[-1] = lumen_scale_age
             new_lifetimes[-1] = self.mean_lifetime
-            new_positions[-1,:] = numerator/denominator 
+            new_positions[-1,:] = numerator / denominator
 
             self.ages = new_ages
             self.lifetimes = new_lifetimes
             self.N_bodies = self.ages.shape[0]
             self.positions = new_positions
-            self.lumen_status = True
-        
+            
+            self.calculate_radius_from_age()
+            self.calculate_volume_from_radius()
+
             try:
                 self.hull=sp.ConvexHull(self.positions)
                 self.last_event_time = self.all_t_values[-1]
-                self.all_lumen_volumes.append(self.lumen_volume)
             except:
-                self.fail_cause = "all_lumen"
+                self.event_trigger_reason = "unphysical_hull"
 
         else:
-            self.fail_cause = "all_lumen"
+            self.event_trigger_reason = "unphysical_hull"
 
     def perform_divisions(
         self
@@ -417,25 +406,18 @@ class Simulation:
         """
 
         N_old = self.N_bodies
-        old_ages = self.ages
         old_positions = self.positions
+        old_ages = self.ages
 
-        if self.lumen_status == False:
-            number_dividing = self.ages[self.ages > self.lifetimes].size
-            enumerator = self.ages
-            start_index = 0
-        else:
-            number_dividing = self.ages[:-1][self.ages[:-1] > self.lifetimes[:-1]].size
-            enumerator = self.ages[:-1]
-            start_index = -1
-        
-        self.N_bodies =  N_old + number_dividing
+        number_dividing = (self.ages[:-1] > self.lifetimes[:-1]).sum()
+        self.N_bodies += number_dividing
+
         new_positions = np.zeros((self.N_bodies,3))
         new_ages = np.zeros((self.N_bodies, 1))
         new_lifetimes = np.zeros((self.N_bodies, 1))
         
         j = 0 
-        for i, age in enumerate(enumerator):
+        for i, age in enumerate(self.ages[:-1]):
             if age < self.lifetimes[i]:
                 new_positions[i] = self.positions[i]
                 new_ages[i] = self.ages[i]
@@ -443,30 +425,28 @@ class Simulation:
             else:
                 new_ages[i] = 0
                 new_lifetimes[i] = np.random.normal(self.mean_lifetime, self.lifetime_std)
-                new_ages[N_old + j+ start_index] = 0
-                new_lifetimes[N_old + j + start_index] = np.random.normal(self.mean_lifetime, self.lifetime_std)
+                new_ages[N_old + j-1] = 0
+                new_lifetimes[N_old + j-1] = np.random.normal(self.mean_lifetime, self.lifetime_std)
 
                 theta_rand = np.random.uniform(0,360)
                 phi_rand = np.random.uniform(0,360)
 
-                new_positions[i][0] = self.positions[i][0] + self.r_min*np.cos(phi_rand)* np.sin(theta_rand)
+                new_positions[i][0] = self.positions[i][0] + self.r_min * np.cos(phi_rand) * np.sin(theta_rand)
                 new_positions[i][1] = self.positions[i][1] +  self.r_min * np.sin(phi_rand) * np.sin(theta_rand)
                 new_positions[i][2] = self.positions[i][2] +  self.r_min * np.cos(theta_rand)
-                new_positions[N_old + j + start_index][0] =  new_positions[i][0]-(2*self.r_min*np.cos(phi_rand)* np.sin(theta_rand))
-                new_positions[N_old + j + start_index][1] = new_positions[i][1]-(2*self.r_min * np.sin(phi_rand) * np.sin(theta_rand))
-                new_positions[N_old + j+ start_index][2] = new_positions[i][2] - (2*self.r_min * np.cos(theta_rand))        
+                new_positions[N_old + j-1][0] =  new_positions[i][0] - (2*self.r_min * np.cos(phi_rand) * np.sin(theta_rand))
+                new_positions[N_old + j-1][1] = new_positions[i][1] - (2*self.r_min * np.sin(phi_rand) * np.sin(theta_rand))
+                new_positions[N_old + j-1][2] = new_positions[i][2] - (2*self.r_min * np.cos(theta_rand))        
                 j += 1
 
-        if self.lumen_status == True:
-            new_ages[-1] = old_ages[-1]
-            new_lifetimes[-1] = self.mean_lifetime
-            new_positions[-1] = old_positions[-1]
+        new_ages[-1] = old_ages[-1]
+        new_lifetimes[-1] = self.mean_lifetime
+        new_positions[-1] = old_positions[-1]
 
         self.positions = new_positions
         self.ages = new_ages
         self.lifetimes = new_lifetimes
         self.hull = sp.ConvexHull(self.positions)
-        self.N_bodies = self.ages.shape[0]
         self.last_event_time = self.all_t_values[-1]
 
     def execute(
@@ -496,54 +476,54 @@ class Simulation:
 
         t_min = 0
         while t_min < self.t_max:
-            sol = solve_ivp(
-                fun=self.r_dot, 
-                t_span=(t_min, self.t_max), 
-                y0=self.positions.flatten(), 
-                method='RK45', 
-                first_step=0.0003, 
-                max_step=self.delta_t_max, 
-                events=(self.events), 
-                args=(self,)
-            )
+            try:
+                sol = solve_ivp(
+                    fun=self.r_dot, 
+                    t_span=(t_min, self.t_max), 
+                    y0=self.positions.flatten(), 
+                    method='RK45', 
+                    first_step=0.0003, 
+                    max_step=self.delta_t_max, 
+                    events=(self.events), 
+                    args=(self,)
+                )
 
-            t_min = max(sol.t)
-            
-            if t_min > self.t_max:
-                self.fail_cause = "success"
-                break
+                t_min = max(sol.t)
+                
+                if t_min > self.t_max:
+                    break
 
-            if any (self.current_areas) <  self.A_eq_star:
-                self.fail_cause = "small_area"
-                break
+                elif self.event_trigger_reason == 'unphysical_area' or self.event_trigger_reason == 'unphysical_hull': 
+                    break
 
-            if (self.lumen_status == True) & (self.positions.shape[0]<=3):
-                self.fail_cause = "all_lumen"
-                break
+                elif self.event_trigger_reason == 'too_soon_event':
+                    self.event_trigger_reason = None
+                    continue
 
-            if self.lumen_status == False:
-                if len(self.hull.vertices) != self.N_bodies:
-                    self.cell_joins_lumen()
-                    if self.fail_cause == "all_lumen":
-                        break
-                elif any(self.ages >= self.lifetimes):   
+                elif self.event_trigger_reason == 'division':
                     self.perform_divisions()
+                    self.event_trigger_reason = None
 
-            else:
-                if len([i for i in range(self.N_bodies) if np.linalg.norm(self.positions - self.positions[-1], axis=1) [i] <= (self.lumen_radius*self.radius_scaling)]) > 1:
+                elif self.event_trigger_reason == 'cell_joins_lumen':
                     self.cell_joins_lumen()
-                    if self.fail_cause == "all_lumen":
+                    if self.event_trigger_reason == 'unphysical_hull':
                         break
-                elif any(self.ages[0:-1] > self.lifetimes[0:-1]):
-                    self.perform_divisions()
+                    self.event_trigger_reason = None
+                    
                 else:
-                    self.fail_cause = "unknown"
+                    self.event_trigger_reason = "unknown"
+            except:
+                self.event_trigger_reason = 'unknown_uncaught'
+                break
 
         del self.all_t_values[0:2]
 
         self.results = pd.DataFrame()
-        self.results = pd.DataFrame(list(zip(*[self.all_t_values, self.all_volumes, self.average_areas, self.all_preferred_areas])))
-        self.results.columns = ["t", "Cluster_Vol", "Areas", "Preferred_area"]
+        self.results['t'] = self.all_t_values
+        self.results['Cluster_Vol'] = self.all_volumes
+        self.results['Areas'] = self.all_average_areas
+        self.results['Preferred_area'] = self.all_preferred_areas
+        self.results['Lumen_volume'] = self.all_lumen_volumes
         self.results["Run_No"] = run_number
         self.results["r_min"] = self.r_min
         self.results["beta"] = self.beta
@@ -553,7 +533,7 @@ class Simulation:
         self.results["mean_lifetime"] = self.mean_lifetime
         self.results["lumen_volume_scaling"] = self.volume_scaling
         self.results["lumen_radius_scaling"] = self.radius_scaling
-        self.results["end_reason"] = self.fail_cause
+        self.results["end_reason"] = self.event_trigger_reason
         
         if write_results:
             self.results.to_parquet("{}\\Alter{}_Run{}.parquet".format(write_path, alter, run_number))
