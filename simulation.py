@@ -517,23 +517,56 @@ class Simulation:
                 break
 
         del self.all_t_values[0:2]
-
+        
         self.results = pd.DataFrame()
+        final_positions = self.positions
+        self.results['final_N_bodies'] = self.positions.shape[0]
+        
+        if self.event_trigger_reason != "unknown" and self.event_trigger_reason != "unknown_uncaught"  and self.event_trigger_reason != "unphysical_hull":
+            hull = sp.ConvexHull(final_positions)
+            centroid = np.mean(final_positions)
+            radius = np.max(np.linalg.norm(final_positions - centroid, axis=1))
+            volume_sphere = (4/3) * np.pi * (radius**3)
+            sphericity = hull.volume / volume_sphere 
+            self.hull = sp.ConvexHull(self.positions)
+            dela = sp.Delaunay(self.positions)
+            self.neighbours = np.empty((self.N_bodies, self.N_bodies))
+            self.neighbours[:] = np.nan
+            self.neighbours = get_neighbours(dela.simplices, self.N_bodies)
+            distance_matrix = np.zeros((self.N_bodies, self.N_bodies)) 
+            self.calculate_radius_from_age()
+            for ii in range(self.N_bodies):
+                for jj in self.neighbours[ii]:
+                    if np.isnan(jj) or ii <= jj:
+                        continue
+                    else:   
+                        jj = int(jj)
+                        r_ij_star = self.positions[jj,:] - self.positions[ii,:]
+                        sum_radii = self.radii[ii][0] + self.radii[jj][0]
+                        r_mag = np.sqrt(np.dot(r_ij_star,r_ij_star))
+                        print("sum radii =", sum_radii, "r_mag", r_mag)
+
+                        distance_matrix[ii][jj] = r_mag-sum_radii
+            print(distance_matrix)
+            self.results['cluster_vol'] = self.all_volumes
+            self.results["sphericity"] = sphericity
+            self.results["mean_separation"] = np.nanmean(distance_matrix)
+        
         self.results['t'] = self.all_t_values
-        self.results['Cluster_Vol'] = self.all_volumes
-        self.results['Areas'] = self.all_average_areas
-        self.results['Preferred_area'] = self.all_preferred_areas
-        self.results['Lumen_volume'] = self.all_lumen_volumes
-        self.results["Run_No"] = run_number
+        self.results['areas'] = self.all_average_areas
+        self.results['preferred_area'] = self.all_preferred_areas
+        self.results['lumen_volume'] = self.all_lumen_volumes
+        self.results["run_no"] = run_number
         self.results["r_min"] = self.r_min
         self.results["beta"] = self.beta
         self.results["alpha"] = self.alpha
-        self.results["A_eq_star_scaling"] = self.A_eq_star_scaling
-        self.results["P_star"] = self.P_star
+        self.results["a_eq_star_scaling"] = self.A_eq_star_scaling
+        self.results["p_star"] = self.P_star
         self.results["mean_lifetime"] = self.mean_lifetime
         self.results["lumen_volume_scaling"] = self.volume_scaling
         self.results["lumen_radius_scaling"] = self.radius_scaling
         self.results["end_reason"] = self.event_trigger_reason
+   
         
         if write_results:
             self.results.to_parquet("{}\\Alter{}_Run{}.parquet".format(write_path, alter, run_number))
