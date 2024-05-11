@@ -519,13 +519,12 @@ class Simulation:
         del self.all_t_values[0:2]
         
         self.results = pd.DataFrame()
-        final_positions = self.positions
         self.results['final_N_bodies'] = self.positions.shape[0]
         
-        if self.event_trigger_reason != "unknown" and self.event_trigger_reason != "unknown_uncaught"  and self.event_trigger_reason != "unphysical_hull":
-            hull = sp.ConvexHull(final_positions)
-            centroid = np.mean(final_positions)
-            radius = np.max(np.linalg.norm(final_positions - centroid, axis=1))
+        if self.event_trigger_reason != "unknown" and self.event_trigger_reason != "unknown_uncaught" and self.event_trigger_reason != "unphysical_hull":
+            hull = sp.ConvexHull(self.positions)
+            centroid = np.mean(self.positions)
+            radius = np.max(np.linalg.norm(self.positions - centroid, axis=1))
             volume_sphere = (4/3) * np.pi * (radius**3)
             sphericity = hull.volume / volume_sphere 
             self.hull = sp.ConvexHull(self.positions)
@@ -535,6 +534,7 @@ class Simulation:
             self.neighbours = get_neighbours(dela.simplices, self.N_bodies)
             distance_matrix = np.zeros((self.N_bodies, self.N_bodies)) 
             self.calculate_radius_from_age()
+
             for ii in range(self.N_bodies):
                 for jj in self.neighbours[ii]:
                     if np.isnan(jj) or ii <= jj:
@@ -544,10 +544,8 @@ class Simulation:
                         r_ij_star = self.positions[jj,:] - self.positions[ii,:]
                         sum_radii = self.radii[ii][0] + self.radii[jj][0]
                         r_mag = np.sqrt(np.dot(r_ij_star,r_ij_star))
-                        print("sum radii =", sum_radii, "r_mag", r_mag)
-
                         distance_matrix[ii][jj] = r_mag-sum_radii
-            print(distance_matrix)
+
             self.results['cluster_vol'] = self.all_volumes
             self.results["sphericity"] = sphericity
             self.results["mean_separation"] = np.nanmean(distance_matrix)
