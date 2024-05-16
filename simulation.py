@@ -160,6 +160,7 @@ class Simulation:
         self.all_volumes = []
         self.all_positions = []
         self.all_ages = []
+        self.all_lifetimes = []
         self.all_preferred_areas = []
         self.all_t_values = [0, 0]
 
@@ -288,6 +289,7 @@ class Simulation:
         self.ages[-1] = current_ages[-1]  
             
         self.all_ages.append(self.ages)
+        self.all_lifetimes.append(self.lifetimes)
         round_percent = int(round((self.all_t_values[-1]/self.t_max)*50))
         drdt = self.force_matrix.flatten().tolist()
 
@@ -454,9 +456,9 @@ class Simulation:
         beta,
         alpha,
         P_star,
-        volume_scaling,
         radius_scaling,
         A_eq_star_scaling,
+        volume_scaling=0.2,
         A_eq_star=0.1,
         write_results=False,
         write_path="C:\\Users\\Tom\\Documents\\Bel PhD\\Bel_Simulation\\outputs",
@@ -519,36 +521,47 @@ class Simulation:
         del self.all_t_values[0:2]
         
         self.results = pd.DataFrame()
-        self.results['final_N_bodies'] = self.positions.shape[0]
+
         
         if self.event_trigger_reason != "unknown" and self.event_trigger_reason != "unknown_uncaught" and self.event_trigger_reason != "unphysical_hull":
-            hull = sp.ConvexHull(self.positions)
-            centroid = np.mean(self.positions)
-            radius = np.max(np.linalg.norm(self.positions - centroid, axis=1))
-            volume_sphere = (4/3) * np.pi * (radius**3)
-            sphericity = hull.volume / volume_sphere 
-            self.hull = sp.ConvexHull(self.positions)
-            dela = sp.Delaunay(self.positions)
-            self.neighbours = np.empty((self.N_bodies, self.N_bodies))
-            self.neighbours[:] = np.nan
-            self.neighbours = get_neighbours(dela.simplices, self.N_bodies)
-            distance_matrix = np.zeros((self.N_bodies, self.N_bodies)) 
+            final_positions = self.positions
+            final_N_bodies = self.N_bodies
+            final_ages = self.ages
             self.calculate_radius_from_age()
+            final_radii = self.radii
+        else:
+            final_positions = (self.all_positions[-2])
+            final_N_bodies = self.all_positions[-2].shape[0]
+            final_ages = self.all_ages[-2]
+            #final_radii = self.r_min * (1 + ((np.cbrt(2)-1)  * (final_ages/self.mean_lifetime)))
+            final_radii = self.r_min * (1 + ((np.cbrt(2)-1)  * (final_ages/self.all_lifetimes[-2])))
 
-            for ii in range(self.N_bodies):
-                for jj in self.neighbours[ii]:
-                    if np.isnan(jj) or ii <= jj:
-                        continue
-                    else:   
-                        jj = int(jj)
-                        r_ij_star = self.positions[jj,:] - self.positions[ii,:]
-                        sum_radii = self.radii[ii][0] + self.radii[jj][0]
-                        r_mag = np.sqrt(np.dot(r_ij_star,r_ij_star))
-                        distance_matrix[ii][jj] = r_mag-sum_radii
 
-            self.results['cluster_vol'] = self.all_volumes
-            self.results["sphericity"] = sphericity
-            self.results["mean_separation"] = np.nanmean(distance_matrix)
+        hull = sp.ConvexHull(final_positions)
+        volume = hull.volume
+        surface_area = hull.area
+        sphericity = (np.pi ** (1/3) * (6 * volume) ** (2/3)) / surface_area
+        dela = sp.Delaunay(final_positions)
+        self.neighbours = np.empty((final_N_bodies, final_N_bodies))
+        self.neighbours[:] = np.nan
+        self.neighbours = get_neighbours(dela.simplices, final_N_bodies)
+        distance_matrix = np.zeros((final_N_bodies, final_N_bodies)) 
+    
+
+        for ii in range(final_N_bodies):
+            for jj in self.neighbours[ii]:
+                if np.isnan(jj) or ii <= jj:
+                    continue
+                else:   
+                    jj = int(jj)
+                    r_ij_star = final_positions[jj,:] - final_positions[ii,:]
+                    sum_radii = final_radii[ii][0] + final_radii[jj][0]
+                    r_mag = np.sqrt(np.dot(r_ij_star,r_ij_star))
+                    distance_matrix[ii][jj] = r_mag-sum_radii
+
+        self.results['cluster_vol'] = self.all_volumes
+        self.results["sphericity"] = sphericity
+        self.results["mean_separation"] = np.nanmean(distance_matrix)
         
         self.results['t'] = self.all_t_values
         self.results['areas'] = self.all_average_areas
@@ -564,6 +577,7 @@ class Simulation:
         self.results["lumen_volume_scaling"] = self.volume_scaling
         self.results["lumen_radius_scaling"] = self.radius_scaling
         self.results["end_reason"] = self.event_trigger_reason
+        self.results['final_N_bodies'] = self.N_bodies
    
         
         if write_results:
