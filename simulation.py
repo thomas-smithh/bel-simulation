@@ -150,13 +150,14 @@ class Simulation:
         boxsize=5,
         r_min=1,
         mean_lifetime=5,
-        delta_t_max=0.001
+        delta_t_max=0.001,
+        timestep_reset=1000
+
     ):
         """
         """
 
         self.all_forces = []
-        self.all_average_areas = []
         self.all_volumes = []
         self.all_positions = []
         self.all_ages = []
@@ -192,6 +193,8 @@ class Simulation:
 
         self.events.terminal = True
         self.event_trigger_reason = None
+        self.timestep_reset = timestep_reset
+        self.reset_count = 0
 
     def calculate_radius_from_age(
         self
@@ -268,6 +271,41 @@ class Simulation:
 
         self.current_areas = self.areas
 
+    def reset_system(
+        self
+    ) -> None:
+        """
+        """
+
+        if self.timestep_reset >= len(self.all_t_values):
+            timestep_reset = len(self.all_t_values)-3
+        else:
+            timestep_reset = self.timestep_reset
+
+        self.positions = self.all_positions[-timestep_reset]
+        self.all_positions = self.all_positions[:-timestep_reset]
+        self.ages = self.all_ages[-timestep_reset]
+        self.all_ages = self.all_ages[:-timestep_reset]
+        self.lifetimes = self.all_lifetimes[-timestep_reset]
+        self.all_lifetimes = self.all_lifetimes[:-timestep_reset]
+        self.N_bodies = self.positions.shape[0]
+        self.calculate_radius_from_age()
+        self.calculate_volume_from_radius()
+        self.all_t_values = self.all_t_values[:-timestep_reset]
+        self.t_min = self.all_t_values[-1]
+        self.all_preferred_areas = self.all_preferred_areas[:-timestep_reset]
+        self.A_eq_star = self.all_preferred_areas[-1]
+
+        self.all_volumes = self.all_volumes[:-timestep_reset]
+        self.all_lumen_volumes = self.all_lumen_volumes[:-timestep_reset]
+        self.lumen_volume = [self.all_lumen_volumes[-1]]
+        self.lumen_radius = self.radii[-1]
+        self.hull = sp.ConvexHull(self.positions)
+
+        self.reset_count += 1
+        if self.reset_count < 10:
+            self.event_trigger_reason = None
+
     @staticmethod
     def r_dot(
         t,
@@ -298,7 +336,6 @@ class Simulation:
         self.all_volumes.append(self.hull.volume)
         self.all_lumen_volumes.append(self.lumen_volume[0])
         self.all_preferred_areas.append(self.A_eq_star)
-        self.all_average_areas.append(self.areas.mean())
 
         return drdt
 
@@ -463,7 +500,8 @@ class Simulation:
         write_results=False,
         write_path="C:\\Users\\Tom\\Documents\\Bel PhD\\Bel_Simulation\\outputs",
         run_number=0,
-        alter='all'
+        alter='all',
+        max_reset_count=10
     ):
         """
         """
@@ -476,12 +514,13 @@ class Simulation:
         self.volume_scaling = volume_scaling
         self.radius_scaling = radius_scaling
 
-        t_min = 0
-        while t_min < self.t_max:
+        self.t_min = 0
+        while self.t_min < self.t_max and self.reset_count < max_reset_count:
+
             try:
                 sol = solve_ivp(
                     fun=self.r_dot, 
-                    t_span=(t_min, self.t_max), 
+                    t_span=(self.t_min, self.t_max), 
                     y0=self.positions.flatten(), 
                     method='RK45', 
                     first_step=0.0003, 
@@ -490,12 +529,18 @@ class Simulation:
                     args=(self,)
                 )
 
-                t_min = max(sol.t)
+                self.t_min = max(sol.t)
                 
-                if t_min > self.t_max:
+                if self.t_min > self.t_max:
                     break
 
-                elif self.event_trigger_reason == 'unphysical_area' or self.event_trigger_reason == 'unphysical_hull': 
+                elif self.event_trigger_reason == 'unphysical_area':
+                    if len(self.all_t_values) <= self.timestep_reset:
+                        break
+                    else:
+                        self.reset_system()
+
+                elif self.event_trigger_reason == 'unphysical_hull': 
                     break
 
                 elif self.event_trigger_reason == 'too_soon_event':
@@ -514,9 +559,18 @@ class Simulation:
                     
                 else:
                     self.event_trigger_reason = "unknown"
+                    if len(self.all_t_values) <= self.timestep_reset:
+                        break
+                    else:
+                        self.reset_system()
+
             except:
                 self.event_trigger_reason = 'unknown_uncaught'
-                break
+                if len(self.all_t_values) <= self.timestep_reset:
+                    break
+                else:
+                    self.reset_system()
+
 
         del self.all_t_values[0:2]
         
@@ -530,11 +584,10 @@ class Simulation:
             self.calculate_radius_from_age()
             final_radii = self.radii
         else:
-            final_positions = (self.all_positions[-2])
-            final_N_bodies = self.all_positions[-2].shape[0]
-            final_ages = self.all_ages[-2]
-            #final_radii = self.r_min * (1 + ((np.cbrt(2)-1)  * (final_ages/self.mean_lifetime)))
-            final_radii = self.r_min * (1 + ((np.cbrt(2)-1)  * (final_ages/self.all_lifetimes[-2])))
+            final_positions = (self.all_positions[-1])
+            final_N_bodies = self.all_positions[-1].shape[0]
+            final_ages = self.all_ages[-1]
+            final_radii = self.r_min * (1 + ((np.cbrt(2)-1)  * (final_ages/self.all_lifetimes[-1])))
 
 
         hull = sp.ConvexHull(final_positions)
@@ -564,8 +617,6 @@ class Simulation:
         self.results["mean_separation"] = np.nanmean(distance_matrix)
         
         self.results['t'] = self.all_t_values
-        self.results['areas'] = self.all_average_areas
-        self.results['preferred_area'] = self.all_preferred_areas
         self.results['lumen_volume'] = self.all_lumen_volumes
         self.results["run_no"] = run_number
         self.results["r_min"] = self.r_min
@@ -578,7 +629,7 @@ class Simulation:
         self.results["lumen_radius_scaling"] = self.radius_scaling
         self.results["end_reason"] = self.event_trigger_reason
         self.results['final_N_bodies'] = self.N_bodies
-   
+        self.results['reset_count'] = self.reset_count
         
         if write_results:
             self.results.to_parquet("{}\\Alter{}_Run{}.parquet".format(write_path, alter, run_number))
