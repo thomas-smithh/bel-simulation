@@ -7,6 +7,9 @@ import numba as nb
 import scipy.spatial as sp
 from scipy.integrate import solve_ivp
 import random
+from warnings import filterwarnings
+
+filterwarnings("ignore")
 
 @contextlib.contextmanager
 def tqdm_joblib(
@@ -172,7 +175,7 @@ class Simulation:
         self.boxsize = boxsize
         self.r_min = r_min
         self.mean_lifetime = mean_lifetime
-        self.t_max = self.mean_lifetime * 4
+        self.t_max = self.mean_lifetime * 3
         self.delta_t_max = delta_t_max
 
         self.lifetime_std = self.mean_lifetime/100
@@ -348,6 +351,10 @@ class Simulation:
         """
         """
 
+        if self.N_bodies>= 400:
+            self.event_trigger_reason = "too_many_cells"
+            return 0
+
         if any(self.current_areas) <  self.A_eq_star:
             self.event_trigger_reason = "unphysical_area"
             return 0
@@ -495,13 +502,13 @@ class Simulation:
         P_star,
         radius_scaling,
         A_eq_star_scaling,
-        volume_scaling=0.2,
+        volume_scaling=0.1,
         A_eq_star=0.1,
         write_results=False,
         write_path="C:\\Users\\Tom\\Documents\\Bel PhD\\Bel_Simulation\\outputs",
         run_number=0,
         alter='all',
-        max_reset_count=10
+        max_reset_count=0
     ):
         """
         """
@@ -515,8 +522,7 @@ class Simulation:
         self.radius_scaling = radius_scaling
 
         self.t_min = 0
-        while self.t_min < self.t_max and self.reset_count < max_reset_count:
-
+        while self.t_min < self.t_max and self.reset_count <= max_reset_count:
             try:
                 sol = solve_ivp(
                     fun=self.r_dot, 
@@ -534,11 +540,16 @@ class Simulation:
                 if self.t_min > self.t_max:
                     break
 
+                elif self.event_trigger_reason == 'too_many_cells':
+                    break
+
                 elif self.event_trigger_reason == 'unphysical_area':
                     if len(self.all_t_values) <= self.timestep_reset:
                         break
-                    else:
+                    elif self.reset_count <= max_reset_count:
                         self.reset_system()
+                    else:
+                        continue
 
                 elif self.event_trigger_reason == 'unphysical_hull': 
                     break
@@ -561,15 +572,21 @@ class Simulation:
                     self.event_trigger_reason = "unknown"
                     if len(self.all_t_values) <= self.timestep_reset:
                         break
-                    else:
+                    elif self.reset_count <= max_reset_count:
                         self.reset_system()
+                    else:
+                        continue
+
 
             except:
                 self.event_trigger_reason = 'unknown_uncaught'
                 if len(self.all_t_values) <= self.timestep_reset:
                     break
-                else:
+                elif self.reset_count <= max_reset_count:
                     self.reset_system()
+                else:
+                    continue
+
 
 
         del self.all_t_values[0:2]
@@ -599,7 +616,6 @@ class Simulation:
         self.neighbours[:] = np.nan
         self.neighbours = get_neighbours(dela.simplices, final_N_bodies)
         distance_matrix = np.zeros((final_N_bodies, final_N_bodies)) 
-    
 
         for ii in range(final_N_bodies):
             for jj in self.neighbours[ii]:
@@ -615,7 +631,10 @@ class Simulation:
         self.results['cluster_vol'] = self.all_volumes
         self.results["sphericity"] = sphericity
         self.results["mean_separation"] = np.nanmean(distance_matrix)
-        
+        # if np.isnan(self.positions).any() or self.positions.any() > 1e3:
+        #     self.results["lumen_distance_from_com"] = np.nan
+        # else:
+        #     self.results["lumen_distance_from_com"] = np.linalg.norm(np.mean(self.positions, axis=0)-self.positions[-1])
         self.results['t'] = self.all_t_values
         self.results['lumen_volume'] = self.all_lumen_volumes
         self.results["run_no"] = run_number
@@ -630,7 +649,11 @@ class Simulation:
         self.results["end_reason"] = self.event_trigger_reason
         self.results['final_N_bodies'] = self.N_bodies
         self.results['reset_count'] = self.reset_count
-        
+        try:
+            self.results['hull_volume'] = self.hull.volume
+        except:
+            self.results['hull_volume'] = np.nan
+
         if write_results:
             self.results.to_parquet("{}\\Alter{}_Run{}.parquet".format(write_path, alter, run_number))
             np.save('{}\\Alter{}_positions_{}.npy'.format(write_path, alter, run_number), np.array(self.all_positions, dtype=object), allow_pickle=True)
