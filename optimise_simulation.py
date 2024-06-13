@@ -5,10 +5,7 @@ from tqdm import tqdm
 from scipy.stats import skewnorm
 from scipy.optimize import minimize_scalar
 from scipy.stats import skewnorm
-from bayes_opt import BayesianOptimization
 from simulation import Simulation
-from bayes_opt.logger import JSONLogger
-from bayes_opt.event import Events
 from hyperopt import fmin, tpe, Trials, space_eval, STATUS_OK, hp
 from hyperopt.fmin import generate_trials_to_calculate
 import random
@@ -46,7 +43,7 @@ def lumen_vol_dist(x):
         return 1e-30
 
 def time_dist(x):
-    return (x / 15) + 1e-30
+    return (x / 10) + 1e-30
 
 def lumen_com_dist(x):
     if np.isnan(x):
@@ -109,11 +106,12 @@ def target_function(
     """
 
     radius_scaling = random.uniform(0.5, 1.8)
-    volume_scaling = random.uniform(0.01, 0.5)
-    simulation = Simulation(N_bodies=50)
+    volume_scaling = random.uniform(0.01, 0.1)
+    simulation = Simulation(N_bodies=70)
 
-    run_number = get_next_run_number("F:\\Bel_Simulation\\Optimisation Output with Initial Parameter Space Probing 2")
+    run_number = get_next_run_number("F:\\Bel_Simulation\\Optimisation Output with Initial Parameter Space Probing 3")
 
+    # try:
     simulation.execute(
         alpha=params['alpha'],
         beta=params['beta'],
@@ -124,7 +122,7 @@ def target_function(
         #max_reset_count=20,
         run_number=run_number,
         write_results=True,
-        write_path="F:\\Bel_Simulation\\Optimisation Output with Initial Parameter Space Probing 2"
+        write_path="F:\\Bel_Simulation\\Optimisation Output with Initial Parameter Space Probing 3"
     )
     
     results = simulation.results.iloc[-1]
@@ -137,50 +135,32 @@ def target_function(
         results['hull_volume'],
         results['t']
     )
-
+    # except:
+    #     return 1
 
     return {'loss': target, 'status': STATUS_OK}
-
-
-# def log_memory_usage():
-#     process = psutil.Process(os.getpid())
-#     memory_info = process.memory_info()
-#     logging.info(f"Memory Usage: RSS={memory_info.rss / 1024 ** 2} MB, VMS={memory_info.vms / 1024 ** 2} MB")
-
-
-#     tracemalloc.start()
-
-#         # Your simulation and optimization code
-#         log_memory_usage()
-#         # More of your code
-#         log_memory_usage()
-#         tracemalloc.stop()
-
-# if __name__ == "__main__":
-#     main()
-
 
 
 
 if __name__ == '__main__':
 
     search_space = {
-        'alpha': hp.uniform('alpha', 0, 100),
-        'beta': hp.uniform('beta', 0, 1000),
-        'A_eq_star_scaling': hp.uniform('A_eq_star_scaling', 0, 1),
-        'P_star': hp.uniform('P_star', 0, 1000),
+        'alpha': hp.uniform('alpha', 0, 1),
+        'beta': hp.uniform('beta', 0, 1),
+        'A_eq_star_scaling': hp.uniform('A_eq_star_scaling', 0, 0.5),
+        'P_star': hp.uniform('P_star', 100, 1000),
     }
 
-    # beta = np.random.uniform(0.008351, 0.999717, 100)
-    # alpha =  np.random.uniform(0.000147, 0.004797, 100)
-    # A_eq_star_scaling = np.random.uniform(0.078842, 0.387942, 100)
-    # P_star = np.random.uniform(460.438517, 904.892311, 100) 
+    beta = np.random.uniform(0.008351, 0.999717, 10)
+    alpha =  np.random.uniform(0.000147, 0.004797, 10)
+    A_eq_star_scaling = np.random.uniform(0.078842, 0.387942, 10)
+    P_star = np.random.uniform(460.438517, 904.892311, 10) 
 
 
-    beta = np.random.uniform(0, 1000, 10000)
-    alpha =  np.random.uniform(0, 1000, 10000)
-    A_eq_star_scaling = np.random.uniform(0, 1000, 10000)
-    P_star = np.random.uniform(0, 1000, 10000) 
+    # beta = np.random.uniform(0, 1000, 10000)
+    # alpha =  np.random.uniform(0, 1000, 10000)
+    # A_eq_star_scaling = np.random.uniform(0, 1000, 10000)
+    # P_star = np.random.uniform(0, 1000, 10000) 
 
     initial_probing = []
 
@@ -194,20 +174,17 @@ if __name__ == '__main__':
             }
         )
 
-    for params in tqdm(initial_probing):
-        target_function(params)
+    trials = generate_trials_to_calculate(initial_probing)
 
-    # trials = generate_trials_to_calculate(initial_probing)
+    algo = tpe.suggest
+    max_evals = 100_000_000
 
-    # algo = tpe.suggest
-    # max_evals = 100_000_000
-
-    # best = fmin(
-    #     fn=target_function,
-    #     space=search_space,
-    #     algo=algo,
-    #     max_evals=max_evals,
-    #     #trials=trials,
-    #     verbose=True,
-    #     #trials_save_file='trials_13_Optimising_with_initial_probing.pkl'
-    # )
+    best = fmin(
+        fn=target_function,
+        space=search_space,
+        algo=algo,
+        max_evals=max_evals,
+        trials=trials,
+        verbose=True,
+        trials_save_file='trials_14_Optimising_with_initial_probing_in_valid_range_no_rest_no_lumen_optimisation.pkl'
+    )

@@ -168,25 +168,82 @@ class Simulation:
         self.all_preferred_areas = []
         self.all_t_values = [0, 0]
 
-        self.current_areas = np.inf
+        #self.current_areas = np.inf
+
         self.last_event_time = 0
 
         self.N_bodies = N_bodies
         self.boxsize = boxsize
         self.r_min = r_min
         self.mean_lifetime = mean_lifetime
-        self.t_max = self.mean_lifetime * 3
+        self.t_max = self.mean_lifetime * 2
         self.delta_t_max = delta_t_max
 
         self.lifetime_std = self.mean_lifetime/100
         self.lifetimes = np.random.normal(self.mean_lifetime, self.lifetime_std, size=(self.N_bodies, 1))
         self.ages = self.lifetimes * np.random.rand(self.N_bodies, 1)
 
-        self.positions = np.concatenate([self.fibonacci_sphere(self.N_bodies-1, 2), np.array([0, 0, 0]).reshape(1,3)])
+        # positions = self.fibonacci_sphere(self.N_bodies-1)
+        # self.positions  = self.adjust_points_to_touch(positions , 2)
+        # self.positions = np.concatenate([self.positions , np.array([0, 0, 0]).reshape(1,3)])
+        self.positions = np.array([[ 9.68760602e-02,  3.23536155e+00, -3.28572552e-01],
+       [-4.77131276e-01,  1.14751503e+00,  9.37536071e-01],
+       [ 1.21241997e-01,  1.36071315e+00, -7.56834855e-01],
+       [ 1.17490803e+00,  2.37935612e+00,  8.58487436e-01],
+       [-1.37530317e+00,  2.39795781e+00, -6.58333089e-01],
+       [ 1.74336076e+00,  2.56862891e+00, -7.51322073e-01],
+       [-7.37467305e-01,  2.89979700e+00,  1.13249685e+00],
+       [-1.23919152e+00,  1.66498790e+00, -2.31597416e+00],
+       [ 1.32594187e+00,  6.71792943e-01,  3.96362588e-02],
+       [-2.36152368e+00,  1.90913336e+00,  7.83641557e-01],
+       [ 3.11098515e-01,  2.51340759e+00, -2.02798011e+00],
+       [ 4.10910995e-01,  1.93784670e+00,  2.33797154e+00],
+       [-2.63011294e+00,  1.23780802e+00, -1.07779665e+00],
+       [ 2.90975868e+00,  1.43051648e+00,  1.34713037e-02],
+       [-1.46315744e+00,  1.73153997e+00,  2.40942523e+00],
+       [ 5.53500266e-01,  8.79137990e-01, -2.73289714e+00],
+       [ 2.21314516e+00,  1.33984494e+00,  1.77790217e+00],
+       [-3.30053262e+00,  3.16682034e-01,  3.79071008e-01],
+       [ 1.95781734e+00,  1.27408561e+00, -1.76814227e+00],
+       [ 9.69134304e-01,  5.67190267e-01,  3.13822880e+00],
+       [-2.37864830e+00,  5.15174191e-02, -2.33585747e+00],
+       [ 2.76383734e+00, -2.50988979e-01,  8.12276751e-01],
+       [-2.22208928e+00,  2.00109569e-01,  1.84989611e+00],
+       [ 7.85201289e-01, -4.03769269e-01, -1.25902622e+00],
+       [ 8.35714890e-01,  1.97114383e-02,  1.45205118e+00],
+       [-1.50435085e+00,  3.87023719e-01,  1.28479111e-02],
+       [ 2.76755480e+00, -2.04589561e-01, -1.03489428e+00],
+       [-6.88128422e-01,  2.32572967e-01,  2.82825162e+00],
+       [-7.82363197e-01,  1.22869599e-03, -3.25180257e+00],
+       [ 2.24198875e+00, -4.94598895e-01,  2.42313720e+00],
+       [-2.51996272e+00, -1.28563460e+00,  7.81453932e-01],
+       [ 1.96748356e+00, -3.34452723e-01, -2.67235098e+00],
+       [ 4.51592279e-01, -1.28446136e+00,  2.82637852e+00],
+       [-2.66930509e+00, -8.62753902e-01, -9.44639918e-01],
+       [ 2.78840714e+00, -1.70401540e+00, -6.02208567e-02],
+       [-1.45686446e+00, -1.45627834e+00,  2.51778023e+00],
+       [ 3.74398314e-01, -1.22313524e+00, -2.79068098e+00],
+       [ 1.81802856e+00, -1.89753362e+00,  1.55764431e+00],
+       [-1.89914617e+00, -2.52920185e+00, -7.90857852e-01],
+       [ 1.84817119e+00, -1.91633440e+00, -1.62858901e+00],
+       [-6.07898230e-01, -7.84375420e-01,  1.17526085e+00],
+       [-1.38029319e+00, -1.61416325e+00, -2.26817829e+00],
+       [ 1.39713391e+00, -2.94643924e+00, -2.92216713e-02],
+       [-1.53539910e+00, -2.57773992e+00,  1.07699980e+00],
+       [ 1.22009266e-01, -2.43171154e+00, -1.53419712e+00],
+       [ 1.70192604e-01, -2.48382237e+00,  1.58267696e+00],
+       [-7.84995617e-01, -1.29737741e+00, -3.60008680e-01],
+       [ 9.58243370e-01, -1.27638666e+00,  1.07969455e-01],
+       [-2.70626706e-01, -3.10416656e+00, -4.10051002e-02],
+       [-8.41199244e-01,  4.80799646e-02, -1.48566597e+00]])
+
         self.force_matrix = np.zeros((self.N_bodies, 3))
         self.hull = sp.ConvexHull(self.positions)
+        
+        # self.current_areas = self.hull.area
         self.radii = np.zeros_like(self.ages)
         self.volumes = np.zeros_like(self.ages)
+        self.areas = np.zeros([len(self.hull.simplices),1])
 
         self.calculate_radius_from_age()
         self.calculate_volume_from_radius()
@@ -214,27 +271,31 @@ class Simulation:
 
     @staticmethod
     def fibonacci_sphere(
-        samples=1, 
-        radius=2
-    ):
-        """
-        """
-
+        samples=1):
         points = []
-        phi = np.pi * (3. - np.sqrt(5.)) 
+        phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
 
         for i in range(samples):
-            y = 1 - (i / float(samples - 1)) * 2 
-            radius_c = np.sqrt(1 - y * y)
+            y = 1 - (i / float(samples - 1)) * 2  # y goes from 1 to -1
+            radius = np.sqrt(1 - y * y)  # radius at y
 
-            theta = phi * i 
+            theta = phi * i  # golden angle increment
 
-            x = np.cos(theta) * radius_c
-            z = np.sin(theta) * radius_c
+            x = np.cos(theta) * radius
+            z = np.sin(theta) * radius
 
-            points.append((radius * x, radius * y, radius * z))
+            points.append((x, y, z))
 
-        return np.array(points)
+        return points
+
+    @staticmethod
+    def adjust_points_to_touch(points, radius):
+        scaled_points = []
+        for i, (x, y, z) in enumerate(points):
+            scale = (2 * radius) / np.sqrt(x*2 + y2 + z*2)
+            scaled_points.append((x * scale, y * scale, z * scale))
+        return np.array(scaled_points)
+    
 
     def calculate_total_forces(
         self
@@ -351,7 +412,7 @@ class Simulation:
         """
         """
 
-        if self.N_bodies>= 400:
+        if self.N_bodies >= 300:
             self.event_trigger_reason = "too_many_cells"
             return 0
 
@@ -503,7 +564,6 @@ class Simulation:
         radius_scaling,
         A_eq_star_scaling,
         volume_scaling=0.1,
-        A_eq_star=0.1,
         write_results=False,
         write_path="C:\\Users\\Tom\\Documents\\Bel PhD\\Bel_Simulation\\outputs",
         run_number=0,
@@ -516,10 +576,10 @@ class Simulation:
         self.beta = beta
         self.alpha = alpha
         self.A_eq_star_scaling = A_eq_star_scaling
-        self.A_eq_star = A_eq_star
         self.P_star = P_star
         self.volume_scaling = volume_scaling
         self.radius_scaling = radius_scaling
+        self.A_eq_star = (self.hull.area / (self.hull.simplices.shape[0])) * self.A_eq_star_scaling
 
         self.t_min = 0
         while self.t_min < self.t_max and self.reset_count <= max_reset_count:
@@ -546,8 +606,8 @@ class Simulation:
                 elif self.event_trigger_reason == 'unphysical_area':
                     if len(self.all_t_values) <= self.timestep_reset:
                         break
-                    elif self.reset_count <= max_reset_count:
-                        self.reset_system()
+                    # elif self.reset_count <= max_reset_count:
+                    #     self.reset_system()
                     else:
                         continue
 
@@ -572,8 +632,8 @@ class Simulation:
                     self.event_trigger_reason = "unknown"
                     if len(self.all_t_values) <= self.timestep_reset:
                         break
-                    elif self.reset_count <= max_reset_count:
-                        self.reset_system()
+                    # elif self.reset_count <= max_reset_count:
+                    #     self.reset_system()
                     else:
                         continue
 
@@ -582,8 +642,8 @@ class Simulation:
                 self.event_trigger_reason = 'unknown_uncaught'
                 if len(self.all_t_values) <= self.timestep_reset:
                     break
-                elif self.reset_count <= max_reset_count:
-                    self.reset_system()
+                # elif self.reset_count <= max_reset_count:
+                #     self.reset_system()
                 else:
                     continue
 
