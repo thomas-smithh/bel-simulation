@@ -5,10 +5,7 @@ from tqdm import tqdm
 from scipy.stats import skewnorm
 from scipy.optimize import minimize_scalar
 from scipy.stats import skewnorm
-from bayes_opt import BayesianOptimization
 from simulation import Simulation
-from bayes_opt.logger import JSONLogger
-from bayes_opt.event import Events
 from hyperopt import fmin, tpe, Trials, space_eval, STATUS_OK, hp
 from hyperopt.fmin import generate_trials_to_calculate
 import random
@@ -46,7 +43,7 @@ def lumen_vol_dist(x):
         return 1e-30
 
 def time_dist(x):
-    return (x / 15) + 1e-30
+    return (x / 10) + 1e-30
 
 def lumen_com_dist(x):
     if np.isnan(x):
@@ -80,14 +77,14 @@ def derive_target(
     mean_separation_optimisation_value = scaled_gaussian(mean_separation, mu=-0.2, sigma=0.3)
     sphericity_optimisation_value = skew_normal_sphericity.get_value(sphericity)
     n_cells_optimisation_value = skew_normal_n_cells.get_value(n_cells)
-    # lumen_vol_optimisation_value = lumen_vol_dist(lumen_vol/hull_vol)
+    lumen_vol_optimisation_value = lumen_vol_dist(lumen_vol/hull_vol)
     time_optimisation_value = time_dist(max_time)
 
     target_value = (
         mean_separation_optimisation_value *
         sphericity_optimisation_value *
         n_cells_optimisation_value *
-        # lumen_vol_optimisation_value *
+        lumen_vol_optimisation_value *
         time_optimisation_value
         # lumen_com_optimisation_values
     )
@@ -108,11 +105,11 @@ def target_function(
     """
     """
 
-    radius_scaling = random.uniform(0.5, 1.8)
-    volume_scaling = random.uniform(0.01, 0.5)
-    simulation = Simulation(N_bodies=50)
+    radius_scaling = random.uniform(0.5, 1.7)
+    volume_scaling = random.uniform(0.01, 0.1)
+    simulation = Simulation(N_bodies=70)
 
-    run_number = get_next_run_number("F:\\Bel_Simulation\\Optimisation Output with Initial Parameter Space Probing 2")
+    run_number = get_next_run_number("C:\\Users\\isobe\\Documents\\Outputs_data_lumen_vol_cost_fcc_start_pos")
 
     simulation.execute(
         alpha=params['alpha'],
@@ -124,10 +121,11 @@ def target_function(
         #max_reset_count=20,
         run_number=run_number,
         write_results=True,
-        write_path="F:\\Bel_Simulation\\Optimisation Output with Initial Parameter Space Probing 2"
+        write_path="C:\\Users\\isobe\\Documents\\Outputs_data_lumen_vol_cost_fcc_start_pos"
     )
     
     results = simulation.results.iloc[-1]
+
     target = -derive_target(
         results['mean_separation'],
         #results['lumen_distance_from_com'],
@@ -165,22 +163,17 @@ def target_function(
 if __name__ == '__main__':
 
     search_space = {
-        'alpha': hp.uniform('alpha', 0, 100),
+        'alpha': hp.uniform('alpha', 0, 1000),
         'beta': hp.uniform('beta', 0, 1000),
-        'A_eq_star_scaling': hp.uniform('A_eq_star_scaling', 0, 1),
+        'A_eq_star_scaling': hp.uniform('A_eq_star_scaling', 0, 0.99),
         'P_star': hp.uniform('P_star', 0, 1000),
     }
 
-    # beta = np.random.uniform(0.008351, 0.999717, 100)
-    # alpha =  np.random.uniform(0.000147, 0.004797, 100)
-    # A_eq_star_scaling = np.random.uniform(0.078842, 0.387942, 100)
-    # P_star = np.random.uniform(460.438517, 904.892311, 100) 
+    beta = np.random.uniform(0.008351, 0.999717, 5)
+    alpha =  np.random.uniform(0.000147, 0.004797, 5)
+    A_eq_star_scaling = np.random.uniform(0.078842, 0.387942, 5)
+    P_star = np.random.uniform(460.438517, 904.892311, 5) 
 
-
-    beta = np.random.uniform(0, 1000, 10000)
-    alpha =  np.random.uniform(0, 1000, 10000)
-    A_eq_star_scaling = np.random.uniform(0, 1000, 10000)
-    P_star = np.random.uniform(0, 1000, 10000) 
 
     initial_probing = []
 
@@ -194,20 +187,20 @@ if __name__ == '__main__':
             }
         )
 
-    for params in tqdm(initial_probing):
-        target_function(params)
+    # for params in tqdm(initial_probing):
+    #     target_function(params)
 
-    # trials = generate_trials_to_calculate(initial_probing)
+    trials = generate_trials_to_calculate(initial_probing)
 
-    # algo = tpe.suggest
-    # max_evals = 100_000_000
+    algo = tpe.suggest
+    max_evals = 100_000_000
 
-    # best = fmin(
-    #     fn=target_function,
-    #     space=search_space,
-    #     algo=algo,
-    #     max_evals=max_evals,
-    #     #trials=trials,
-    #     verbose=True,
-    #     #trials_save_file='trials_13_Optimising_with_initial_probing.pkl'
-    # )
+    best = fmin(
+        fn=target_function,
+        space=search_space,
+        algo=algo,
+        max_evals=max_evals,
+        trials=trials,
+        verbose=True,
+        trials_save_file='BEL_trials_14_Optimising_with_initial_probing_lumenvolcost_fccstart_pos.pkl'
+    )

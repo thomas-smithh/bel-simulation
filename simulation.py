@@ -149,7 +149,7 @@ class Simulation:
 
     def __init__(
         self,
-        N_bodies=4,
+        N_bodies=70,
         boxsize=5,
         r_min=1,
         mean_lifetime=5,
@@ -175,14 +175,95 @@ class Simulation:
         self.boxsize = boxsize
         self.r_min = r_min
         self.mean_lifetime = mean_lifetime
-        self.t_max = self.mean_lifetime * 3
+        self.t_max = self.mean_lifetime * 2
         self.delta_t_max = delta_t_max
 
         self.lifetime_std = self.mean_lifetime/100
         self.lifetimes = np.random.normal(self.mean_lifetime, self.lifetime_std, size=(self.N_bodies, 1))
         self.ages = self.lifetimes * np.random.rand(self.N_bodies, 1)
 
-        self.positions = np.concatenate([self.fibonacci_sphere(self.N_bodies-1, 2), np.array([0, 0, 0]).reshape(1,3)])
+        #self.positions = self.fibonacci_sphere(n_spheres=self.N_bodies, radius=1.3)
+        # positions = self.fibonacci_sphere(self.N_bodies-1)
+        # self.positions  = self.adjust_points_to_touch(positions , 2)
+        # self.positions = np.concatenate([self.positions , np.array([0, 0, 0]).reshape(1,3)])
+
+
+        # print(self.positions)
+        # self.positions = np.concatenate([self.positions(self.N_bodies-1, 2), np.array([0, 0, 0]).reshape(1,3)])
+    #     self.positions = np.array([[ 0.08455526,  3.8419759 , -0.79769304],
+
+        self.positions = np.array([[ 7.85644822e-02,  2.03704701e+00, -1.44438203e-01],
+       [-1.19378674e+00,  3.22591201e+00,  5.76453721e-01],
+       [ 6.07914478e-02,  3.35680897e+00, -9.12230905e-01],
+       [ 6.03164880e-01,  3.28445062e+00,  1.10986975e+00],
+       [-1.60322975e+00,  2.69071956e+00, -1.08745096e+00],
+       [ 1.64787572e+00,  2.87473262e+00, -1.61552999e-01],
+       [-6.70269294e-01,  2.45537519e+00,  1.89254751e+00],
+       [-2.72011301e-01,  2.44998835e+00, -2.54012604e+00],
+       [ 2.22874634e+00,  2.24244031e+00,  1.31910310e+00],
+       [-1.15906660e+00,  1.43449001e+00,  2.74366991e-01],
+       [ 7.59850788e-01,  5.82603781e-01, -1.23170699e+00],
+       [ 8.85505822e-01,  2.01402469e+00,  2.66701553e+00],
+       [-2.08989122e+00,  1.70065410e+00, -2.35206526e+00],
+       [ 2.97166583e+00,  1.83403082e+00, -5.62263581e-01],
+       [-2.08737601e+00,  1.78023017e+00,  1.96467018e+00],
+       [-1.87939149e-01,  1.40018277e+00, -1.67863203e+00],
+       [ 6.84049565e-01,  1.47101553e+00,  1.16646047e+00],
+       [-2.64561600e+00,  2.22992472e+00,  3.74648500e-01],
+       [ 1.46436038e+00,  2.32726520e+00, -1.72735335e+00],
+       [-4.29717969e-01,  6.10714993e-01,  1.77947830e+00],
+       [-1.35893724e+00,  7.98574441e-01, -1.17746785e+00],
+       [ 1.68272669e+00,  1.00929458e+00, -1.93722856e-01],
+       [-1.98696836e+00,  3.97207802e-01,  7.71184101e-01],
+       [ 1.07894215e+00,  1.13399313e+00, -3.04749244e+00],
+       [ 2.29230372e+00,  7.38796460e-01,  2.63679873e+00],
+       [-3.00801742e+00,  1.20441208e+00, -8.28983840e-01],
+       [ 2.57911555e+00,  8.94544792e-01, -2.00294665e+00],
+       [-7.88513147e-01,  1.19450396e+00,  3.23641456e+00],
+       [-9.64935871e-01,  6.96213410e-01, -3.16187203e+00],
+       [ 3.31544614e+00,  8.62114254e-01,  1.01632104e+00],
+       [-3.33740516e+00,  5.64214959e-01,  1.05028914e+00],
+       [ 1.50335959e+00, -3.81320936e-01, -1.61617624e+00],
+       [ 7.20071155e-01,  2.50186071e-01,  2.93827879e+00],
+       [-2.55361690e+00, -9.27942934e-02, -2.22515178e+00],
+       [ 3.07105709e+00,  3.91797744e-04, -2.54305638e-01],
+       [-2.15261178e+00,  9.31574067e-02,  2.61527138e+00],
+       [ 2.27600331e-01, -2.51330706e-01, -3.01703023e+00],
+       [ 1.75003279e+00,  3.80776395e-01,  1.34687845e+00],
+       [-3.46449631e+00, -5.63937399e-01, -4.86917875e-01],
+       [ 3.10403812e+00, -8.61465699e-01, -1.54889947e+00],
+       [-4.32543139e-01, -6.95098928e-01,  3.27956949e+00],
+       [-1.31049913e+00, -1.19497892e+00, -3.06259127e+00],
+       [ 2.87384418e+00, -8.93590223e-01,  1.55172534e+00],
+       [-2.83119781e+00, -1.20425175e+00,  1.31250374e+00],
+       [ 1.82735225e+00, -7.37575890e-01, -2.97817125e+00],
+       [ 1.56691344e+00, -1.13380235e+00,  2.82923637e+00],
+       [-2.08753284e+00, -3.96051342e-01, -4.33969476e-01],
+       [ 1.68966972e+00, -1.00919628e+00, -8.66784592e-02],
+       [-1.14411370e+00, -7.98926639e-01,  1.38323015e+00],
+       [-7.17759803e-01, -6.09653144e-01, -1.68441756e+00],
+       [ 1.72841012e+00, -2.32721421e+00,  1.46312565e+00],
+       [-2.67271045e+00, -2.23079942e+00,  6.57094533e-02],
+       [ 4.80089768e-01, -1.46887089e+00, -1.26295990e+00],
+       [ 9.05599990e-02, -1.40079411e+00,  1.68416618e+00],
+       [-2.38314358e+00, -1.78146754e+00, -1.59476974e+00],
+       [ 3.02420845e+00, -1.83412283e+00,  6.60391737e-02],
+       [-1.67505407e+00, -1.70115935e+00,  2.66386951e+00],
+       [ 4.35057728e-01, -2.01554587e+00, -2.77623452e+00],
+       [ 9.51428673e-01, -5.86147871e-01,  1.08643658e+00],
+       [-1.18735884e+00, -1.43278945e+00, -7.86240721e-02],
+       [ 1.98217651e+00, -2.24304165e+00, -1.66833248e+00],
+       [ 1.48905849e-01, -2.44934834e+00,  2.55049384e+00],
+       [-9.74334420e-01, -2.45725323e+00, -1.75776480e+00],
+       [ 1.65259255e+00, -2.87368878e+00, -1.11134113e-01],
+       [-1.40209490e+00, -2.68943940e+00,  1.33646979e+00],
+       [ 4.12803852e-01, -3.28633475e+00, -1.19454331e+00],
+       [ 2.10620580e-01, -3.35612329e+00,  8.92019805e-01],
+       [-1.27265202e+00, -3.22766796e+00, -3.71362205e-01],
+       [ 1.00523611e-01, -2.03318446e+00,  1.32008783e-01],
+       [-6.35964090e-02, -3.42730202e-03,  4.28524890e-03]])
+
+
         self.force_matrix = np.zeros((self.N_bodies, 3))
         self.hull = sp.ConvexHull(self.positions)
         self.radii = np.zeros_like(self.ages)
@@ -214,27 +295,31 @@ class Simulation:
 
     @staticmethod
     def fibonacci_sphere(
-        samples=1, 
-        radius=2
-    ):
-        """
-        """
-
+        samples=1):
         points = []
-        phi = np.pi * (3. - np.sqrt(5.)) 
+        phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
 
         for i in range(samples):
-            y = 1 - (i / float(samples - 1)) * 2 
-            radius_c = np.sqrt(1 - y * y)
+            y = 1 - (i / float(samples - 1)) * 2  # y goes from 1 to -1
+            radius = np.sqrt(1 - y * y)  # radius at y
 
-            theta = phi * i 
+            theta = phi * i  # golden angle increment
 
-            x = np.cos(theta) * radius_c
-            z = np.sin(theta) * radius_c
+            x = np.cos(theta) * radius
+            z = np.sin(theta) * radius
 
-            points.append((radius * x, radius * y, radius * z))
+            points.append((x, y, z))
 
-        return np.array(points)
+        return points
+
+    @staticmethod
+    def scale_points(self, points, scale):
+        return [(x * scale, y * scale, z * scale) for x, y, z in points]
+    @staticmethod
+    def pack_spheres_in_sphere(self, n_spheres, sphere_radius, sphere_radius_inner):
+        points = self.fibonacci_sphere(n_spheres)
+        scaled_points = self.scale_points(points, sphere_radius_inner)
+        return scaled_points    
 
     def calculate_total_forces(
         self
@@ -503,12 +588,12 @@ class Simulation:
         radius_scaling,
         A_eq_star_scaling,
         volume_scaling=0.1,
-        A_eq_star=0.1,
+        # A_eq_star=0.1,
         write_results=False,
         write_path="C:\\Users\\Tom\\Documents\\Bel PhD\\Bel_Simulation\\outputs",
         run_number=0,
         alter='all',
-        max_reset_count=0
+        max_reset_count=10
     ):
         """
         """
@@ -516,10 +601,11 @@ class Simulation:
         self.beta = beta
         self.alpha = alpha
         self.A_eq_star_scaling = A_eq_star_scaling
-        self.A_eq_star = A_eq_star
+        # self.A_eq_star = A_eq_star
         self.P_star = P_star
         self.volume_scaling = volume_scaling
         self.radius_scaling = radius_scaling
+        self.A_eq_star = (self.hull.area / (self.hull.simplices.shape[0])) * self.A_eq_star_scaling
 
         self.t_min = 0
         while self.t_min < self.t_max and self.reset_count <= max_reset_count:
@@ -580,6 +666,7 @@ class Simulation:
 
             except:
                 self.event_trigger_reason = 'unknown_uncaught'
+
                 if len(self.all_t_values) <= self.timestep_reset:
                     break
                 elif self.reset_count <= max_reset_count:
@@ -631,10 +718,10 @@ class Simulation:
         self.results['cluster_vol'] = self.all_volumes
         self.results["sphericity"] = sphericity
         self.results["mean_separation"] = np.nanmean(distance_matrix)
-        # if np.isnan(self.positions).any() or self.positions.any() > 1e3:
-        #     self.results["lumen_distance_from_com"] = np.nan
-        # else:
-        #     self.results["lumen_distance_from_com"] = np.linalg.norm(np.mean(self.positions, axis=0)-self.positions[-1])
+        if np.isnan(self.positions).any() or self.positions.any() > 1e3:
+            self.results["lumen_distance_from_com"] = np.nan
+        else:
+            self.results["lumen_distance_from_com"] = np.linalg.norm(np.mean(self.positions, axis=0)-self.positions[-1])
         self.results['t'] = self.all_t_values
         self.results['lumen_volume'] = self.all_lumen_volumes
         self.results["run_no"] = run_number
