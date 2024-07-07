@@ -178,8 +178,10 @@ class Simulation:
         self.t_max = self.mean_lifetime * 2
         self.delta_t_max = delta_t_max
 
-        self.lifetime_std = self.mean_lifetime/100
-        self.lifetimes = np.random.normal(self.mean_lifetime, self.lifetime_std, size=(self.N_bodies, 1))
+        self.lifetime_std = self.mean_lifetime/20
+        lifetimes = np.random.normal(self.mean_lifetime, self.lifetime_std, size=(self.N_bodies, 1))
+        self.lifetimes = np.where(lifetimes < 0, self.mean_lifetime - self.lifetime_std, lifetimes)
+
         self.ages = self.lifetimes * np.random.rand(self.N_bodies, 1)
 
         #self.positions = self.fibonacci_sphere(n_spheres=self.N_bodies, radius=1.3)
@@ -293,33 +295,7 @@ class Simulation:
         self.volumes = 4/3 * np.pi * self.radii**3
         self.lumen_volume = self.volumes[-1]
 
-    @staticmethod
-    def fibonacci_sphere(
-        samples=1):
-        points = []
-        phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
 
-        for i in range(samples):
-            y = 1 - (i / float(samples - 1)) * 2  # y goes from 1 to -1
-            radius = np.sqrt(1 - y * y)  # radius at y
-
-            theta = phi * i  # golden angle increment
-
-            x = np.cos(theta) * radius
-            z = np.sin(theta) * radius
-
-            points.append((x, y, z))
-
-        return points
-
-    @staticmethod
-    def scale_points(self, points, scale):
-        return [(x * scale, y * scale, z * scale) for x, y, z in points]
-    @staticmethod
-    def pack_spheres_in_sphere(self, n_spheres, sphere_radius, sphere_radius_inner):
-        points = self.fibonacci_sphere(n_spheres)
-        scaled_points = self.scale_points(points, sphere_radius_inner)
-        return scaled_points    
 
     def calculate_total_forces(
         self
@@ -359,40 +335,6 @@ class Simulation:
 
         self.current_areas = self.areas
 
-    def reset_system(
-        self
-    ) -> None:
-        """
-        """
-
-        if self.timestep_reset >= len(self.all_t_values):
-            timestep_reset = len(self.all_t_values)-3
-        else:
-            timestep_reset = self.timestep_reset
-
-        self.positions = self.all_positions[-timestep_reset]
-        self.all_positions = self.all_positions[:-timestep_reset]
-        self.ages = self.all_ages[-timestep_reset]
-        self.all_ages = self.all_ages[:-timestep_reset]
-        self.lifetimes = self.all_lifetimes[-timestep_reset]
-        self.all_lifetimes = self.all_lifetimes[:-timestep_reset]
-        self.N_bodies = self.positions.shape[0]
-        self.calculate_radius_from_age()
-        self.calculate_volume_from_radius()
-        self.all_t_values = self.all_t_values[:-timestep_reset]
-        self.t_min = self.all_t_values[-1]
-        self.all_preferred_areas = self.all_preferred_areas[:-timestep_reset]
-        self.A_eq_star = self.all_preferred_areas[-1]
-
-        self.all_volumes = self.all_volumes[:-timestep_reset]
-        self.all_lumen_volumes = self.all_lumen_volumes[:-timestep_reset]
-        self.lumen_volume = [self.all_lumen_volumes[-1]]
-        self.lumen_radius = self.radii[-1]
-        self.hull = sp.ConvexHull(self.positions)
-
-        self.reset_count += 1
-        if self.reset_count < 10:
-            self.event_trigger_reason = None
 
     @staticmethod
     def r_dot(
@@ -555,9 +497,12 @@ class Simulation:
                 new_lifetimes[i] = self.lifetimes[i]
             else:
                 new_ages[i] = 0
-                new_lifetimes[i] = np.random.normal(self.mean_lifetime, self.lifetime_std)
+                new_lifetimes[i] = np.random.normal(self.mean_lifetime, self.lifetime_std) if np.random.normal(self.mean_lifetime, self.lifetime_std) > 0 else self.mean_lifetime - self.lifetime_std
+
+                #new_lifetimes[i] = np.random.normal(self.mean_lifetime, self.lifetime_std)
                 new_ages[N_old + j-1] = 0
-                new_lifetimes[N_old + j-1] = np.random.normal(self.mean_lifetime, self.lifetime_std)
+                #new_lifetimes[N_old + j-1] = np.random.normal(self.mean_lifetime, self.lifetime_std)
+                new_lifetimes[N_old + j-1] = np.random.normal(self.mean_lifetime, self.lifetime_std) if np.random.normal(self.mean_lifetime, self.lifetime_std) > 0 else self.mean_lifetime - self.lifetime_std
 
                 theta_rand = np.random.uniform(0,360)
                 phi_rand = np.random.uniform(0,360)
@@ -588,7 +533,6 @@ class Simulation:
         radius_scaling,
         A_eq_star_scaling,
         volume_scaling=0.1,
-        # A_eq_star=0.1,
         write_results=False,
         write_path="C:\\Users\\Tom\\Documents\\Bel PhD\\Bel_Simulation\\outputs",
         run_number=0,
@@ -601,14 +545,13 @@ class Simulation:
         self.beta = beta
         self.alpha = alpha
         self.A_eq_star_scaling = A_eq_star_scaling
-        # self.A_eq_star = A_eq_star
         self.P_star = P_star
         self.volume_scaling = volume_scaling
         self.radius_scaling = radius_scaling
         self.A_eq_star = (self.hull.area / (self.hull.simplices.shape[0])) * self.A_eq_star_scaling
 
         self.t_min = 0
-        while self.t_min < self.t_max and self.reset_count <= max_reset_count:
+        while self.t_min < self.t_max: 
             try:
                 sol = solve_ivp(
                     fun=self.r_dot, 
@@ -630,12 +573,8 @@ class Simulation:
                     break
 
                 elif self.event_trigger_reason == 'unphysical_area':
-                    if len(self.all_t_values) <= self.timestep_reset:
-                        break
-                    elif self.reset_count <= max_reset_count:
-                        self.reset_system()
-                    else:
-                        continue
+                    break
+
 
                 elif self.event_trigger_reason == 'unphysical_hull': 
                     break
@@ -656,23 +595,13 @@ class Simulation:
                     
                 else:
                     self.event_trigger_reason = "unknown"
-                    if len(self.all_t_values) <= self.timestep_reset:
-                        break
-                    elif self.reset_count <= max_reset_count:
-                        self.reset_system()
-                    else:
-                        continue
+                    break
+  
 
 
             except:
                 self.event_trigger_reason = 'unknown_uncaught'
-
-                if len(self.all_t_values) <= self.timestep_reset:
-                    break
-                elif self.reset_count <= max_reset_count:
-                    self.reset_system()
-                else:
-                    continue
+                break
 
 
 
@@ -718,10 +647,10 @@ class Simulation:
         self.results['cluster_vol'] = self.all_volumes
         self.results["sphericity"] = sphericity
         self.results["mean_separation"] = np.nanmean(distance_matrix)
-        if np.isnan(self.positions).any() or self.positions.any() > 1e3:
-            self.results["lumen_distance_from_com"] = np.nan
-        else:
-            self.results["lumen_distance_from_com"] = np.linalg.norm(np.mean(self.positions, axis=0)-self.positions[-1])
+        # if np.isnan(self.positions).any() or self.positions.any() > 1e3:
+        #     self.results["lumen_distance_from_com"] = np.nan
+        # else:
+        #     self.results["lumen_distance_from_com"] = np.linalg.norm(np.mean(self.positions, axis=0)-self.positions[-1])
         self.results['t'] = self.all_t_values
         self.results['lumen_volume'] = self.all_lumen_volumes
         self.results["run_no"] = run_number
@@ -735,7 +664,7 @@ class Simulation:
         self.results["lumen_radius_scaling"] = self.radius_scaling
         self.results["end_reason"] = self.event_trigger_reason
         self.results['final_N_bodies'] = self.N_bodies
-        self.results['reset_count'] = self.reset_count
+        # self.results['reset_count'] = self.reset_count
         try:
             self.results['hull_volume'] = self.hull.volume
         except:

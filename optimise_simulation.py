@@ -109,7 +109,7 @@ def target_function(
     volume_scaling = random.uniform(0.01, 0.1)
     simulation = Simulation(N_bodies=70)
 
-    run_number = get_next_run_number("C:\\Users\\isobe\\Documents\\Outputs_data_lumen_vol_cost_fcc_start_pos")
+    run_number = get_next_run_number("F:\\Bel_Simulation\\Optimisation Output with Initial Parameter Space Probing 3")
 
     simulation.execute(
         alpha=params['alpha'],
@@ -121,7 +121,7 @@ def target_function(
         #max_reset_count=20,
         run_number=run_number,
         write_results=True,
-        write_path="C:\\Users\\isobe\\Documents\\Outputs_data_lumen_vol_cost_fcc_start_pos"
+        write_path="F:\\Bel_Simulation\\Optimisation Output with Initial Parameter Space Probing 3"
     )
     
     results = simulation.results.iloc[-1]

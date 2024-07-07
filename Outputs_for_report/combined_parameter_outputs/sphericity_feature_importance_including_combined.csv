@@ -1,0 +1,11 @@
+,Feature,Importance
+10,a_eq_star_scaling*lumen_radius_scaling,0.2167662809576846
+4,1/a_eq_star_scaling,0.16968534412452485
+1,a_eq_star_scaling,0.16586138622914606
+7,beta/a_eq_star_scaling,0.14796672593800542
+11,a_eq_star_scaling/lumen_radius_scaling,0.08325257710144623
+2,lumen_radius_scaling,0.04941083865155733
+9,beta/lumen_radius_scaling,0.04253762284944725
+5,1/lumen_radius_scaling,0.04059986538519455
+0,beta,0.02513691665949216
+3,1/beta,0.02409384622480577

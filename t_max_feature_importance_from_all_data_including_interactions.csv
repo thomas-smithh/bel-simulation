@@ -1,0 +1,11 @@
+,Feature,Importance
+0,beta,0.0
+1,a_eq_star_scaling,0.0
+2,lumen_radius_scaling,0.0
+3,1/beta,0.0
+4,1/a_eq_star_scaling,0.0
+5,1/lumen_radius_scaling,0.0
+6,beta*a_eq_star_scaling,0.0
+7,beta/a_eq_star_scaling,0.0
+8,beta*lumen_radius_scaling,0.0
+9,beta/lumen_radius_scaling,0.0
